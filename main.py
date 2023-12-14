@@ -20,11 +20,11 @@ class UnitDetail:
         self.Unit = 0
         self.Name = ""
         self.isActive = True
-        self.unitCorrect = False
-        self.nameCorrect = False
+        self.isUnitCorrect = False
+        self.isNameCorrect = False
         self.isActiveCorrect = False
-        self.verified = False
-        self.missingThisUnit = False
+        self.Verified = False
+        self.missingThisUnit = False # missing from pals
         self.dbName = ""
 
 class PalsUnit:
@@ -39,19 +39,21 @@ class PalsUnit:
 
 def check_units(pals, dbs, ws):
     for rownum in range(2, ws.max_row+1):
-        unit = ws.cell(rownum, 1)
-        name = ws.cell(rownum, 2)
-        active = ws.cell(rownum, 3)
-        isActive = ws.cell(rownum, 3)
-        if unit in pals.keys():
-            self.Unit = unit
-            self.Name = name
-            self.isActive = active
-            self.nameCorrect = pals[unit][palsUnit] == name
-            self.isActiveCorrect = pals[unit][palsActive] == isActive
-            self.verified = self.nameCorrect and self.isActiveCorrect
-
-
+        detail = UnitDetail()
+        detail.Unit = ws.cell(rownum, 1)
+        detail.Name = ws.cell(rownum, 2)
+        detail.isActive = ws.cell(rownum, 3)
+        if detail.Unit in pals.keys():
+            print("Found unit", detail.Unit, "in PALS")
+            detail.isNameCorrect = pals[unit][palsName] == detail.Name
+            detail.isActiveCorrect = pals[unit][palsActive] == detail.Active
+            detail.Verified = detail.nameCorrect and detail.isActiveCorrect
+            if detail.Verified:
+                print(pals[unit][palsUnit], detail.Name, detail.isNameCorrect, ws.Title)
+        else:
+            self.missingThisUnit = True
+        detail.dbName = ws.title
+        pals[unit].dbUnits[ws.title] = detail
 
 # Generate a dict of ret[unit_num] = (name, active)
 # redundant but oh well
@@ -80,7 +82,7 @@ if __name__ == '__main__':
     # for sheet in DB_SHEETS:
     #   call whatever function we're using
     #
-    check_units(allPals, wb[DB_SHEETS[0]])
+    check_units(allPals, wb, wb[DB_SHEETS[0]])
 
     different = [ ]
     not_in_pals = [ ]

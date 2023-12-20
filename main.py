@@ -15,156 +15,73 @@ CHECK = 'Check Further'
 UPDATE = 'Update These'
 CLEAR_SHEETS = [ VERIFIED, CHECK, UPDATE ]
 
-class UnitDetail:
-    def __init__(self):
-        self.Unit = 0
-        self.Name = ""
-        self.isActive = True
-        self.isUnitCorrect = False
-        self.isNameCorrect = False
-        self.isActiveCorrect = False
-        self.Verified = False
-        self.missingThisUnit = False # missing from pals
-        self.dbName = ""
-
-class PalsUnit:
-    def __init__(self):
-        self.palsUnit = -1
-        self.palsName = ""
-        self.palsActive = False
-        self.verified = False
-        self.missingFromPals = False # is the pals version missing from any of the dbs?
-
-    dbUnits = dict() # { dbName : UnitDetail }
-
-def check_units(pals, dbs, ws):
+def check_worksheet(pals, ws, results):
+    db = dict()
+    ws.delete_rows(1, 5000)
+    ws.append(["Unit Number", "Problem", "Current Name", "isActive", "Correct Name", "Correct isActive"])
     for rownum in range(2, ws.max_row+1):
-        detail = UnitDetail()
-        detail.Unit = ws.cell(rownum, 1)
-        detail.Name = ws.cell(rownum, 2)
-        detail.isActive = ws.cell(rownum, 3)
-        if detail.Unit in pals.keys():
-            print("Found unit", detail.Unit, "in PALS")
-            detail.isNameCorrect = pals[unit][palsName] == detail.Name
-            detail.isActiveCorrect = pals[unit][palsActive] == detail.Active
-            detail.Verified = detail.nameCorrect and detail.isActiveCorrect
-            if detail.Verified:
-                print(pals[unit][palsUnit], detail.Name, detail.isNameCorrect, ws.Title)
+        db[ws.cell(rownum, 1)] = [ws.cell(rownum, 2), ws.cell(rownum, 3)]
+    for unit in db.keys():
+        if unit in pals.keys:
+            pals_name = pals[unit][1]
+            pals_active = pals[unit][2]
+            db_name = db[unit][1]
+            db_active = db[unit][2]
+            if pals_name == db_name and pals_active == db_active:
+                results[VERIFIED].append(unit, pals_name, pals_active)
+            else:
+                info = [''] * 6
+                info[0] = unit
+                if pals_name != db_name:
+                    info[1] = 'Name '
+                    info[2] = db_name
+                    info[3] = pals_name
+                if pals_active != db_active:
+                    info[1] += 'Active'
+                    info[4] = db_active
+                    info[5] = pals_active
+                ws.append(*info)
+            del pals[unit]
         else:
-            self.missingThisUnit = True
-        detail.dbName = ws.title
-        pals[unit].dbUnits[ws.title] = detail
+            print(f"=====> { unit } { db[unit][1] } { db[unit][2]} ")
+
 
 # Generate a dict of ret[unit_num] = (name, active)
-# redundant but oh well
-def pals_setup(ws, results):
+def pals_setup(ws):
     pals = dict()
     for rownum in range(6, ws.max_row + 1):
         for c in [2, 6, 8]: #unit num columns for PALS Prod
             unit = ws.cell(rownum, c).value
             name = ws.cell(rownum, c+1).value
             active = ws.cell(rownum, 10).value is None
-            if unit:
-                if unit in INACTIVE_FORESTS:
-                    active = False
-                pals[unit] = [name, active]
-
+            if unit and unit in INACTIVE_FORESTS:
+                active = False
+            pals[unit] = [name, active]
     return pals
 
-if __name__ == '__main__':
+def main():
     wb = xl.load_workbook(INPUT_XL)
     results_xl = xl.load_workbook(RESULTS_XL)
     for s in CLEAR_SHEETS:
         results_xl[s].delete_rows(2,5000)
-
-    allPals = pals_setup(wb[PALS], results_xl)
-    #
-    # for sheet in DB_SHEETS:
-    #   call whatever function we're using
-    #
-    check_units(allPals, wb, wb[DB_SHEETS[0]])
-
-    different = [ ]
-    not_in_pals = [ ]
-    total_checked = nope = verified = 0
-
-    s = DB_SHEETS[0]
-    # for s in DB_SHEETS:
-    print(f'=================\nSheet is: {s} / {s.title}\n=================')
-    res = results_xl[s]
-    res.append(["Unit", "Name", "Active?", "Verified?", "Name Correct?", "Active Correct?", "Name", "Active"])
-    dbs = wb[s]
-
-    # loop through each db - for testing doing cara test?
-    # for each member of allPals add to ws, check db for that unit, etc
-    # current = copy.deepcopy(allPals) # don't need this I think
-
-    # at bottom add the ones that are in input but not pals
-    n = 0
-
-    # this won't work as well'
-    # so with pals in memory, and the results assigned to ws
-    # go through each row in dbs and check if it's in pals
-    # OR do it the non retarded way and just add to PALS as it goes through, if it's not in there then add it
-
-    for record in [[k] + v for k, v in allPals.items()]:
-        res.append(record)
-        print(*dbs.values)
-        if n < 100:
-            print(record)
-        n += 1
-
-    print(results_xl.sheetnames)
-
-    # for row in range(2, ws.max_row + 1):
-    #     total_checked += 1
-
-
-    print("Finished")
-    count = 0
-
+    pals = pals_setup(wb[PALS])
+    check_worksheet(pals, wb[DB_SHEETS[0]], results_xl)
     results_xl.save(RESULTS_XL)
-    print(f'PALS count:        {count}')
-    print(f'PALS rows:         {len(allPals)}')
-    print(f'Not in PALS count: {len(not_in_pals)}')
-    print( '=======================')
-    print(f'Verified count:    {verified}')
 
+    # s = DB_SHEETS[0]
+    # # for s in DB_SHEETS:
+    # print(f'=================\nSheet is: {s} / {s.title}\n=================')
+    # res = results_xl[s]
+    # dbs = wb[s]
+    #
+    # for record in [[k] + v for k, v in pals.items()]:
+    #     res.append(record)
+    #     print(*dbs.values)
+    #
+    # print(results_xl.sheetnames)
+    #
+    # print("Finished")
+    # results_xl.save(RESULTS_XL)
 
-
-#================================================================================================================
-
-
-
-    # xyz = 0
-    # for key, val in allPals.items():
-    #     xyz += 1
-    #     if xyz > 100:
-    #         break
-    #     print(key, "-", val, "-", *val)
-
-    #         t = ws.cell(row, 1).value
-    #         t_out = [ ws.cell(row, 1).value, ws.cell(row, 2).value, ws.cell(row, 3).value, ws.cell(row, 4).value]
-    #         if t in allPals['four']:
-    #             allPals['four'][t][2] = True
-    #             if ws.cell(row, 2).value == allPals['four'][t][0] and ws.cell(row, 3).value == allPals['four'][t][1]:
-    #                 # verified.append(f'{s} - {row} - {t} - {pals[t][0]}\n')
-    #                 wb['VERIFIED'].append(t_out)
-    #                 verified += 1
-    #             else:
-    #                 # add this to NOPE worksheet for now
-    #                 wb['NOPE'].append(t_out)
-    #                 # print(f"==> NOPE: {ws.cell(row, 1).value} ({ws.cell(row, 2).value}) {ws.cell(row, 3).value}")
-    #                 nope += 1
-    #         else:
-    #             not_in_pals.append(f"==> NOT IN PALS ({s}): {ws.cell(row, 1).value} ({ws.cell(row, 2).value}) {ws.cell(row, 3).value} \n")
-    #             wb[WORKING].append(t_out)
-    #             # print("=====[ Not in PALS ]=====")
-
-    # for unit, val in allPals.items():
-    #     # for db in bunch-of-dbs ....
-    #     #     do the comparisons here
-    #     if val[2] is False: # val[2] is flag for it being used, true is good, false means it wasn't in the db
-    #         # print(unit, *val)
-    #         pass
-    #     count += 1 if not val[2] else 0
+if __name__ == '__main__':
+    main()

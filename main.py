@@ -1,6 +1,7 @@
 import openpyxl as xl
 import os
 import copy
+import numpy as np
 
 # Forests where all districts are inactive as well - double check these later
 INACTIVE_FORESTS = [ 110108, 110105, 110112, 110405, 110608, 110611, 110620, ]
@@ -15,20 +16,28 @@ CHECK = 'Check Further'
 UPDATE = 'Update These'
 CLEAR_SHEETS = [ VERIFIED, CHECK, UPDATE ]
 
-def check_worksheet(pals, ws, results):
+def check_worksheet(pals, wb, results):
     db = dict()
-    ws.delete_rows(1, 5000)
-    ws.append(["Unit Number", "Problem", "Current Name", "isActive", "Correct Name", "Correct isActive"])
+    sheet = DB_SHEETS[0]
+    ws = wb[sheet]
+    db_sheet = results[sheet]
+    db_sheet.delete_rows(1, 5000)
+    db_sheet.append(["Unit Number", "Problem", "Current Name", "CORRECT Name", "isActive", "CORRECT isActive"])
+    db_remove_me = [ ]
     for rownum in range(2, ws.max_row+1):
-        db[ws.cell(rownum, 1)] = [ws.cell(rownum, 2), ws.cell(rownum, 3)]
-    for unit in db.keys():
-        if unit in pals.keys:
-            pals_name = pals[unit][1]
-            pals_active = pals[unit][2]
-            db_name = db[unit][1]
-            db_active = db[unit][2]
+        u = ws.cell(rownum, 1).value
+        n = ws.cell(rownum, 2).value
+        a = True if ws.cell(rownum, 3).value == 1 else False
+        db[u] = [n,a]
+    unit_missing = pals.keys() - db.keys()
+    for unit in db:
+        if unit in pals.keys():
+            pals_name = pals[unit][0]
+            pals_active = pals[unit][1]
+            db_name = db[unit][0]
+            db_active = db[unit][1] == 1
             if pals_name == db_name and pals_active == db_active:
-                results[VERIFIED].append(unit, pals_name, pals_active)
+                results[VERIFIED].append([unit, pals_name, pals_active])
             else:
                 info = [''] * 6
                 info[0] = unit
@@ -40,18 +49,25 @@ def check_worksheet(pals, ws, results):
                     info[1] += 'Active'
                     info[4] = db_active
                     info[5] = pals_active
-                ws.append(*info)
-            del pals[unit]
+                results[ws.title].append(info)
+            #
+            # del db[unit]
         else:
-            print(f"=====> { unit } { db[unit][1] } { db[unit][2]} ")
-
+            db_remove_me.append([unit, "Not in PALS", db[unit][0], db[unit][1]])
+            # del db[unit]
+            # print(f"================================> { unit }  *db[unit] ")
+    for line in db_remove_me:
+        results[ws.title].append(line)
+    for unit in unit_missing:
+        results[ws.title].append([unit, "In PALS, not here", pals[unit][0], pals[unit][1]])
+    results.save(RESULTS_XL)
 
 # Generate a dict of ret[unit_num] = (name, active)
 def pals_setup(ws):
     pals = dict()
     for rownum in range(6, ws.max_row + 1):
         for c in [2, 6, 8]: #unit num columns for PALS Prod
-            unit = ws.cell(rownum, c).value
+            unit = f'{ws.cell(rownum, c).value}'
             name = ws.cell(rownum, c+1).value
             active = ws.cell(rownum, 10).value is None
             if unit and unit in INACTIVE_FORESTS:
@@ -65,23 +81,9 @@ def main():
     for s in CLEAR_SHEETS:
         results_xl[s].delete_rows(2,5000)
     pals = pals_setup(wb[PALS])
-    check_worksheet(pals, wb[DB_SHEETS[0]], results_xl)
+    check_worksheet(pals, wb, results_xl)
+    print("RAN")
     results_xl.save(RESULTS_XL)
-
-    # s = DB_SHEETS[0]
-    # # for s in DB_SHEETS:
-    # print(f'=================\nSheet is: {s} / {s.title}\n=================')
-    # res = results_xl[s]
-    # dbs = wb[s]
-    #
-    # for record in [[k] + v for k, v in pals.items()]:
-    #     res.append(record)
-    #     print(*dbs.values)
-    #
-    # print(results_xl.sheetnames)
-    #
-    # print("Finished")
-    # results_xl.save(RESULTS_XL)
 
 if __name__ == '__main__':
     main()

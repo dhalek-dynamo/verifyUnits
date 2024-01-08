@@ -72,7 +72,10 @@ def check_worksheet(pals, wb, results):
         for line in db_remove_me:
             results[ws.title].append(line)
         for unit in unit_missing:
-            results[ws.title].append([unit, "In PALS, not here", pals[unit][0], pals[unit][1]])
+            info[1] = 'In PALS, not here'
+            info[6] = 'INSERT INTO ' + sqlTable + ' (' + sqlId + ', ' + sqlName + ', ' + SqlActive + ') VALUES (' + unit + ', ' + pals[unit][0] + ', ' + str(pals[unit][1]) + ');'
+            # results[ws.title].append([unit, "In PALS, not here", pals[unit][0], pals[unit][1]])
+            results[ws.title].append(info)
         results.save(RESULTS_XL)
 
 # Generate a dict of ret[unit_num] = (name, active)

@@ -39,6 +39,8 @@ def check_worksheet(pals, wb, results):
         unit_missing = pals.keys() - db.keys()
         for unit in db:
             sql = ''
+            info = [''] * 7
+            info[0] = unit
             if unit in pals.keys():
                 pals_name = pals[unit][0]
                 pals_active = pals[unit][1]
@@ -47,8 +49,6 @@ def check_worksheet(pals, wb, results):
                 if pals_name == db_name and pals_active == db_active:
                     results[VERIFIED].append([unit, pals_name, pals_active, db_sheet.title])
                 else:
-                    info = [''] * 7
-                    info[0] = unit
                     comma = ''
                     sql = 'UPDATE ' + sqlTable + ' SET '
                     if pals_name != db_name:
@@ -65,7 +65,10 @@ def check_worksheet(pals, wb, results):
                     info[6] = sql + " WHERE " + sqlId + " = " + unit + ";"
                     db_sheet.append(info)
             elif db[unit][1]: #todo inactive ones should be removed, or no? hiding them for now
-                db_remove_me.append([unit, "Not in PALS", db[unit][0], db[unit][1]])
+                info[1] = "Not in PALS"
+                info[6] = 'UPDATE ' + sqlTable + ' SET ' + SqlActive + " = 0 WHERE " + sqlId + " = " + unit + ";"
+                # db_remove_me.append([unit, "Not in PALS", db[unit][0], db[unit][1]])
+                db_remove_me.append(info)
         for line in db_remove_me:
             results[ws.title].append(line)
         for unit in unit_missing:
